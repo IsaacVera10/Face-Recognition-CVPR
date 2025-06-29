@@ -1,0 +1,1 @@
+# En el futuro: crop_faces, preprocesamiento, normalización, etc.
