@@ -1,30 +1,31 @@
-def recognize_face(frame):
-    # Aquí irá el reconocimiento real (modelo, embeddings, etc.)
-    # Por ahora, solo una respuesta dummy
-    return "Persona Desconocida"
+from fastapi import APIRouter, UploadFile, File
+from typing import List
+from app.services.detector import detect_faces
+from app.models.response import FaceRecognitionResponse
+import cv2
+import numpy as np
 
+router = APIRouter()
 
-import random
-
-def recognize_faces_in_boxes(frame, boxes):
-    personas_ficticias = [
-        "Lauren Alexis", "Faith Lianne", "Alexa Pearl",
-        "Soft Sparkling", "Persona Desconocida"
-    ]
+@router.post("/recognize", response_model=List[FaceRecognitionResponse])
+async def recognize(file: UploadFile = File(...)):
+    image_bytes = await file.read()
+    face_locations, _ = detect_faces(image_bytes)
 
     results = []
-    for box in boxes:
-        x, y, w, h = box["x"], box["y"], box["w"], box["h"]
-        # Aquí podrías extraer el rostro con:
-        # face = frame[y:y+h, x:x+w]
+    for (top, right, bottom, left) in face_locations:
+        results.append(FaceRecognitionResponse(
+            name="Unknown",
+            bbox=[left, top, right, bottom]
+        ))
+        # Al final de recognize()
+    nparr = np.frombuffer(image_bytes, np.uint8)
+    image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-        nombre = random.choice(personas_ficticias)
-        confidence = round(random.uniform(0.75, 0.99), 2) if nombre != "Persona Desconocida" else 0.5
+    # Dibujar los bounding boxes
+    for (top, right, bottom, left) in face_locations:
+        cv2.rectangle(image, (left, top), (right, bottom), (0, 255, 0), 2)
 
-        results.append({
-            "name": nombre,
-            "confidence": confidence,
-            "box": box
-        })
-
+    # Guardar la imagen con las detecciones dibujadas
+    cv2.imwrite("deteccion_debug.jpg", image)
     return results
