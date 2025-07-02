@@ -18,14 +18,14 @@ async def recognize(file: UploadFile = File(...)):
             name="Unknown",
             bbox=[left, top, right, bottom]
         ))
-        # Al final de recognize()
+    
+    # DEBUG
     nparr = np.frombuffer(image_bytes, np.uint8)
     image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-    # Dibujar los bounding boxes
     for (top, right, bottom, left) in face_locations:
         cv2.rectangle(image, (left, top), (right, bottom), (0, 255, 0), 2)
 
-    # Guardar la imagen con las detecciones dibujadas
     cv2.imwrite("deteccion_debug.jpg", image)
+    #DEBUG
     return results
