@@ -9,6 +9,7 @@ router = APIRouter()
 
 @router.post("/recognize", response_model=List[FaceRecognitionResponse])
 async def recognize(file: UploadFile = File(...)):
+    print("🟢 Frame recibido")
     image_bytes = await file.read()
     face_locations, _ = detect_faces(image_bytes)
 
@@ -28,4 +29,5 @@ async def recognize(file: UploadFile = File(...)):
 
     cv2.imwrite("deteccion_debug.jpg", image)
     #DEBUG
+    
     return results
