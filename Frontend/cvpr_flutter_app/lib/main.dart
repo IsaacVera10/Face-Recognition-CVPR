@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
@@ -51,24 +50,22 @@ class _CameraAppState extends State<CameraApp> {
     _initCamera(_cameraIndex);
   }
 
-Future<void> _initCamera(int index) async {
-  final desc = cameras[index];
-  final newController = CameraController(
-    desc,
-    ResolutionPreset.medium,
-    enableAudio: false,
-    imageFormatGroup: ImageFormatGroup.jpeg,
-  );
-  await newController.initialize();
-  if (!mounted) return;
-  setState(() {
-    _controller = newController;
-  });
-  _timer?.cancel();
-  _timer = Timer.periodic(const Duration(milliseconds: 700), (_) {
-    if (!_sending) _sendFrame();
-  });
-}
+  Future<void> _initCamera(int index) async {
+    await _controller?.dispose();
+    final desc = cameras[index];
+    _controller = CameraController(
+      desc,
+      ResolutionPreset.medium,
+      enableAudio: false,
+      imageFormatGroup: ImageFormatGroup.jpeg,
+    );
+    await _controller!.initialize();
+    if (mounted) setState(() {});
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(milliseconds: 700), (_) {
+      if (!_sending) _sendFrame();
+    });
+  }
 
   Future<void> _sendFrame() async {
     if (!(_controller?.value.isInitialized ?? false)) return;
@@ -97,12 +94,11 @@ Future<void> _initCamera(int index) async {
           _boxes.clear();
           for (var item in data) {
             final bbox = item['bbox'] as List;
-            // INTERCAMBIO X/Y para ajustar rotación 90° entre imagen y preview
             final rect = Rect.fromLTWH(
-              bbox[1].toDouble(), // x <-- y1
-              bbox[0].toDouble(), // y <-- x1
-              (bbox[3] - bbox[1]).toDouble(), // width  <-- (y2 - y1)
-              (bbox[2] - bbox[0]).toDouble(), // height <-- (x2 - x1)
+              bbox[0].toDouble(),
+              bbox[1].toDouble(),
+              (bbox[2] - bbox[0]).toDouble(),
+              (bbox[3] - bbox[1]).toDouble(),
             );
             _boxes.add(FaceBox(name: item['name'], rect: rect));
           }
@@ -115,19 +111,19 @@ Future<void> _initCamera(int index) async {
     }
   }
 
-Future<void> _switchCamera() async {
-  _timer?.cancel();
-  if (_controller != null) {
-    await _controller!.dispose();
-    _controller = null;
+  Future<void> _switchCamera() async {
+    _timer?.cancel();
+    if (_controller != null) {
+      await _controller!.dispose();
+      _controller = null;
+    }
+    setState(() {
+      _boxes.clear();
+      _sending = false;
+    });
+    _cameraIndex = (_cameraIndex + 1) % cameras.length;
+    await _initCamera(_cameraIndex);
   }
-  setState(() {
-    _boxes.clear();
-    _sending = false;
-  });
-  _cameraIndex = (_cameraIndex + 1) % cameras.length;
-  await _initCamera(_cameraIndex);
-}
 
   @override
   void dispose() {
@@ -144,38 +140,32 @@ Future<void> _switchCamera() async {
       );
     }
 
-    final size = MediaQuery.of(context).size;
-    final preview = _controller!.value.previewSize!;
-
-    // Ahora escalamos con los ejes originales (no rotados)
-    final scaleX = size.width / preview.width;
-    final scaleY = size.height / preview.height;
+    final previewSize = _controller!.value.previewSize!;
+    final screenSize = MediaQuery.of(context).size;
+    final isFrontCamera = cameras[_cameraIndex].lensDirection == CameraLensDirection.front;
 
     return Scaffold(
       body: Stack(
         children: [
-          CameraPreview(_controller!),
-          ..._boxes.map((box) {
-            return Positioned(
-              left: box.rect.left * scaleX,
-              top: box.rect.top * scaleY,
-              width: box.rect.width * scaleX,
-              height: box.rect.height * scaleY,
-              child: Container(
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.green, width: 2),
-                ),
-                child: Align(
-                  alignment: Alignment.topLeft,
-                  child: Container(
-                    color: Colors.green,
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                    child: Text(box.name, style: const TextStyle(color: Colors.white, fontSize: 12)),
-                  ),
+          Center(
+            child: AspectRatio(
+              aspectRatio: previewSize.height / previewSize.width, // width/height invertido usualmente
+              child: CameraPreview(_controller!),
+            ),
+          ),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(
+                painter: FaceBoxPainter(
+                  _boxes,
+                  Size(previewSize.height, previewSize.width),
+                  screenSize,
+                  fit: BoxFit.contain,
+                  isFrontCamera: isFrontCamera,
                 ),
               ),
-            );
-          }),
+            ),
+          ),
           Positioned(
             top: 50,
             right: 20,
@@ -187,5 +177,81 @@ Future<void> _switchCamera() async {
         ],
       ),
     );
+  }
+}
+
+class FaceBoxPainter extends CustomPainter {
+  final List<FaceBox> boxes;
+  final Size imageSize;
+  final Size previewSize;
+  final BoxFit fit;
+  final bool isFrontCamera;
+
+  FaceBoxPainter(
+    this.boxes,
+    this.imageSize,
+    this.previewSize, {
+    this.fit = BoxFit.contain,
+    this.isFrontCamera = false,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.green
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+
+    final outputRect = _applyBoxFit(fit, imageSize, previewSize);
+    final scaleX = outputRect.width / imageSize.width;
+    final scaleY = outputRect.height / imageSize.height;
+    final offsetX = outputRect.left;
+    final offsetY = outputRect.top;
+
+    for (var box in boxes) {
+      double left = box.rect.left;
+      double width = box.rect.width;
+
+      // Espejado horizontal para cámara frontal
+      if (isFrontCamera) {
+        left = imageSize.width - (box.rect.left + box.rect.width);
+      }
+
+      final rect = Rect.fromLTRB(
+        left * scaleX + offsetX,
+        box.rect.top * scaleY + offsetY,
+        (left + width) * scaleX + offsetX,
+        (box.rect.top + box.rect.height) * scaleY + offsetY,
+      );
+      canvas.drawRect(rect, paint);
+
+      // Etiqueta
+      final textSpan = TextSpan(
+        text: box.name,
+        style: const TextStyle(color: Colors.white, fontSize: 14, backgroundColor: Colors.green),
+      );
+      final textPainter = TextPainter(text: textSpan, textDirection: TextDirection.ltr)..layout();
+      textPainter.paint(canvas, Offset(rect.left, rect.top - textPainter.height));
+    }
+  }
+
+  @override
+  bool shouldRepaint(FaceBoxPainter oldDelegate) => true;
+
+  Rect _applyBoxFit(BoxFit fit, Size input, Size output) {
+    final inputAR = input.width / input.height;
+    final outputAR = output.width / output.height;
+    if ((fit == BoxFit.contain && inputAR > outputAR) ||
+        (fit == BoxFit.cover && inputAR < outputAR)) {
+      final scale = output.width / input.width;
+      final height = input.height * scale;
+      final top = (output.height - height) / 2;
+      return Rect.fromLTWH(0, top, output.width, height);
+    } else {
+      final scale = output.height / input.height;
+      final width = input.width * scale;
+      final left = (output.width - width) / 2;
+      return Rect.fromLTWH(left, 0, width, output.height);
+    }
   }
 }
