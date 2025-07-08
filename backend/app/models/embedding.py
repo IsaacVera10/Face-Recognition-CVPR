@@ -7,10 +7,10 @@ from app.core.database import Base
 class Embedding(Base):
     __tablename__ = "embeddings"
 
-    id_embedding = Column(Integer, primary_key=True, index=True)
-    id_usuario = Column(Integer, ForeignKey("usuarios.id_usuario", ondelete="CASCADE"))
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
     vector = Column(ARRAY(Float), nullable=False)
-    fecha_creacion = Column(DateTime(timezone=True), server_default=func.now())
-    pose = Column(String(20))  # Opcional: frontal, perfil, etc.
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    pose = Column(String(20))  # Optional: 'frontal', 'profile', etc.
 
-    usuario = relationship("Usuario", backref="embeddings")
+    user = relationship("User", backref="embeddings")
