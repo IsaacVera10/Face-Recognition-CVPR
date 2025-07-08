@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.routes.recognition.face_recognition import router as recognition_router
+from app.api.routes.recognition import router as recognition_router
 from app.core.config import settings
 
 app = FastAPI(title="CVPR Facial Recognition API")
