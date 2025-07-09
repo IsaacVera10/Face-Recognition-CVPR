@@ -10,4 +10,20 @@ class UserPreview(BaseModel):
     tags: List[str]
 
     class Config:
-        orm_mode = True
+        from_attributes = True
+
+class UserDetail(BaseModel):
+    id: int
+    user_id: str
+    name: str
+    image_url: Optional[str]
+    age: Optional[int]
+    gender: Optional[str]
+    date_of_birth: Optional[str]  # O datetime.date si prefieres
+    recognition_count: int
+    last_seen: Optional[str]
+    last_location: Optional[str]
+    tags: List[str]
+
+    class Config:
+        from_attributes = True  # Para Pydantic v2
