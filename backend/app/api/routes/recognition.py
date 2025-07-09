@@ -1,35 +1,21 @@
+import os
 from fastapi import APIRouter, UploadFile, File
-from typing import List
-# from app.services.detector import detect_faces
-# from app.models.response import FaceRecognitionResponse
-import cv2
-import numpy as np
+import httpx
+from dotenv import load_dotenv
+from app.core.config import settings
+
+load_dotenv()  # Carga las variables del .env
 
 router = APIRouter()
 
+LOCAL_MODEL_URL = settings.LOCAL_MODEL_URL
+
 @router.post("/recognize")
-# def recognize():
-#     return {"message": "Reconocimiento facial deshabilitado temporalmente por deploy"} 
-async def recognize(file: UploadFile = File(...)):
-    # print("🟢 Frame recibido")
-    # image_bytes = await file.read()
-    # face_locations, _ = detect_faces(image_bytes)
-
-    # results = []
-    # for (top, right, bottom, left) in face_locations:
-    #     results.append(FaceRecognitionResponse(
-    #         name="Unknown",
-    #         bbox=[left, top, right, bottom]
-    #     ))
-    
-    # # DEBUG
-    # nparr = np.frombuffer(image_bytes, np.uint8)
-    # image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-
-    # for (top, right, bottom, left) in face_locations:
-    #     cv2.rectangle(image, (left, top), (right, bottom), (0, 255, 0), 2)
-
-    # cv2.imwrite("deteccion_debug.jpg", image)
-    # #DEBUG
-    
-    # return results
+async def recognize_face(file: UploadFile = File(...)):
+    contents = await file.read()
+    async with httpx.AsyncClient() as client:
+        files = {'file': ('frame.jpg', contents, file.content_type)}
+        resp = await client.post(LOCAL_MODEL_URL, files=files)
+    print("Status code:", resp.status_code)
+    print("Response text:", resp.text)
+    return resp.json()

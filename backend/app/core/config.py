@@ -9,7 +9,7 @@ class Settings(BaseSettings):
 
     
     DATABASE_PUBLIC_URL: str = "postgresql://postgres:postgres@localhost/reconocimiento" # Valor por defecto
-
+    LOCAL_MODEL_URL: str = "http://localhost:8000/recognize"
     class Config:
         env_file = ".env"  # Cargar variables desde archivo .env
 
