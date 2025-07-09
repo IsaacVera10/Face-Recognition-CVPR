@@ -13,4 +13,4 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"  # Cargar variables desde archivo .env
 
-settings = Settings()
+settings = Settings() 
