@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: List[str] = ["*"]  # Puedes especificar dominios permitidos
 
     
-    DATABASE_URL: str = "postgresql://postgres:postgres@localhost/reconocimiento" # Valor por defecto
+    DATABASE_PUBLIC_URL: str = "postgresql://postgres:postgres@localhost/reconocimiento" # Valor por defecto
 
     class Config:
         env_file = ".env"  # Cargar variables desde archivo .env
