@@ -10,7 +10,12 @@ from datetime import date, datetime
 
 router = APIRouter()
 
-@router.get("/users/by-page", response_model=List[UserPreview])
+def calcular_edad(date_of_birth: date) -> int:
+    today = date.today()
+    return today.year - date_of_birth.year - ((today.month, today.day) < (date_of_birth.month, date_of_birth.day))
+
+
+@router.get("/users/by-page", response_model=List[UserDetail])
 def get_users_by_page(
     offset: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=50),
@@ -24,16 +29,22 @@ def get_users_by_page(
         .all()
     )
     response = [
-        UserPreview(
+        UserDetail(
             id=user.id,
+            user_id=user.user_id,
             name=user.name,
             image_url=user.image_url,
-            last_seen=user.last_seen.isoformat() if user.last_seen else None,
+            age=calcular_edad(user.date_of_birth) if user.date_of_birth else None,
+            gender=user.gender,
+            date_of_birth=user.date_of_birth.isoformat() if user.date_of_birth else None,
             recognition_count=user.recognition_count or 0,
+            last_seen=user.last_seen.isoformat() if user.last_seen else None,
+            last_location=user.last_location,
             tags=[tag.strip() for tag in user.tags.split(",")] if user.tags else [],
         )
         for user in users
     ]
+
     return response
 
 
